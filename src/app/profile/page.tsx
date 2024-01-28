@@ -1,20 +1,28 @@
+"use client";
 import "@/styles/dashboard.css";
 import "@/styles/profile.css";
 import Menu from "@/components/menu";
 import Image from "next/image";
+import Cookies from "js-cookie";
 
-export default function Recommend() {
+function Profile() {
+  const username = Cookies.get("username");
   return (
     <>
       <div id="dashboard">
         <Menu />
         <div className="dashboard__function">
           <div className="profile">
-            <form id="user-htmlForm">
+            <form id="user">
               <div className="form">
                 <label htmlFor="username">Username:</label>
                 <br />
-                <input type="text-form" id="username" name="username" />
+                <input
+                  type="text-form"
+                  defaultValue={username}
+                  id="username"
+                  name="username"
+                />
               </div>
               <br />
               <div className="form">
@@ -60,3 +68,4 @@ export default function Recommend() {
     </>
   );
 }
+export default Profile;

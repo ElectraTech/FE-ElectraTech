@@ -21,14 +21,14 @@ label {
 
 .form {
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
 }
 
 input[type="text-form"],
 input[type="tel"],
 input[type="password"] {
-  padding: 10px;
-  margin-top: 5px;
+  padding-left: 12px;
+  margin-top: 18px;
   border: none;
 }
 .profile__set {
@@ -48,4 +48,9 @@ input[type="password"] {
 .profile__button {
   display: flex;
   gap: 24px;
+}
+.form__info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
 }

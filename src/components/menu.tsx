@@ -1,7 +1,20 @@
+"use client";
 import "@/styles/dashboard.css";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
+import { useEffect, useState } from "react";
 export default function Menu() {
+  const router = useRouter();
+  const [username, setUserName] = useState("");
+  useEffect(() => {
+    setUserName(Cookies.get("username") ?? "");
+  }, []);
+
+  const handleLogout = () => {
+    router.push("/");
+  };
   return (
     <>
       <div className="dashboard__menu">
@@ -14,13 +27,13 @@ export default function Menu() {
           ></Image>
           <div>
             <p>Hello</p>
-            <p>Jenifer Feroz</p>
+            <p>{username}</p>
           </div>
         </div>
         <div className="dashboard__setting">
           <div>
             <h1>Menu</h1>
-            <Link href="/dashboard">
+            <Link href="/dashboard" style={{ textDecoration: "none" }}>
               <p>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -37,7 +50,7 @@ export default function Menu() {
                 Home
               </p>
             </Link>
-            <Link href="/recommend">
+            <Link href="/recommend" style={{ textDecoration: "none" }}>
               <p>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -54,7 +67,7 @@ export default function Menu() {
                 Recommends
               </p>
             </Link>
-            <Link href="/message">
+            <Link href="/message" style={{ textDecoration: "none" }}>
               <p>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -74,7 +87,7 @@ export default function Menu() {
           </div>
           <div>
             <h1>Settings</h1>
-            <Link href="/profile">
+            <Link href="/profile" style={{ textDecoration: "none" }}>
               <p>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -91,7 +104,7 @@ export default function Menu() {
                 Profile
               </p>
             </Link>
-            <Link href="/contact">
+            <Link href="/contact" style={{ textDecoration: "none" }}>
               <p>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +122,7 @@ export default function Menu() {
               </p>
             </Link>
 
-            <p>
+            <p onClick={handleLogout} style={{ cursor: "pointer" }}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { getDatabase, ref, child, get } from "firebase/database";
 import { auth } from "@/app/firebase/config";
 import { useAuthState } from "react-firebase-hooks/auth";
+import Cookies from "js-cookie";
 
 export default function Login() {
   const [user] = useAuthState(auth);
@@ -21,8 +22,10 @@ export default function Login() {
       if (passwordSnapshot.exists()) {
         const storedPassword = passwordSnapshot.val();
 
-        if (password === storedPassword) {
+        if (password == storedPassword) {
+          Cookies.set("username", username);
           router.push("/dashboard");
+          return;
         }
       } else {
         alert("Password or Username is incorrect");
@@ -63,14 +66,22 @@ export default function Login() {
               />
             </div>
             <div className="login__check">
-              <input type="checkbox" />
-              <p>Keep me logged in</p>
+              <p>
+                <input type="checkbox" />
+                Keep me logged in
+              </p>
             </div>
             <button onClick={handleSignIn}>Login</button>
           </div>
         </div>
         <div className="login__logo">
-          <Image src="/Pngtree.png" alt="logo" width={148} height={134}></Image>
+          <Image
+            src="/Pngtree.png"
+            alt="logo"
+            width={148}
+            height={134}
+            priority
+          ></Image>
           <p>Electratech</p>
         </div>
       </div>
