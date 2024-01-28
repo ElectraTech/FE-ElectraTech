@@ -103,11 +103,14 @@ export default function Recommend() {
         .map(({ id, status }) => `${id}.${status}`)
         .join(" ");
 
+      let updatedStatus: string;
+      let currentStatus: string;
+
       const currentStatusSnapshot = ref(
         database,
         `PowerProviders/${providerName}/Status`
       );
-      let currentStatus: string;
+
       onValue(currentStatusSnapshot, (snapshot) => {
         currentStatus = snapshot.val();
       });
@@ -115,18 +118,17 @@ export default function Recommend() {
       await update(ref(database, `PowerProviders/${providerName}/`), {
         StatusFromWeb: statusUpdate,
       });
+
+      const updatedStatusSnapshot = ref(
+        database,
+        `PowerProviders/${providerName}/StatusFromWeb`
+      );
+      onValue(updatedStatusSnapshot, (snapshot) => {
+        updatedStatus = snapshot.val();
+      });
       setIsLoading(true);
 
       setTimeout(async () => {
-        const updatedStatusSnapshot = ref(
-          database,
-          `PowerProviders/${providerName}/StatusFromWeb`
-        );
-        let updatedStatus: string | null = null;
-        onValue(updatedStatusSnapshot, (snapshot) => {
-          updatedStatus = snapshot.val();
-        });
-
         console.log(`Updated status: ${updatedStatus}`);
         console.log(`Current status: ${currentStatus}`);
 
