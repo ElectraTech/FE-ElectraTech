@@ -282,12 +282,22 @@ export default function Recommend() {
   }, [database, providerName]);
 
   const handleConvertAndSave = async () => {
-    await checkElectricUsage(providerName, amountPaid);
+    const parsedKWh = parseFloat(kWh);
+
+    if (isNaN(parsedKWh)) {
+      setAlertMessage("Please enter a valid numeric value for kWh.");
+      setShowAlert(true);
+      setAlertVariant("danger");
+      return;
+    }
+
+    await checkElectricUsage(providerName, parsedKWh.toString());
+    setAmountPaid(parsedKWh.toString());
+
     const limitRef = ref(database, `PowerProviders/${providerName}/Limit`);
-    setAmountPaid(kWh);
     try {
-      await set(limitRef, parseFloat(kWh));
-      console.log(`Đã lưu ${kWh} kWh vào Firebase.`);
+      await set(limitRef, parsedKWh);
+      console.log(`Đã lưu ${parsedKWh} kWh vào Firebase.`);
       setAlertMessage("Set Limit Successful");
       setShowAlert(true);
       setAlertVariant("success");
