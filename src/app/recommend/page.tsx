@@ -7,7 +7,6 @@ import { getDatabase, ref, child, get, set } from "firebase/database";
 import { useState, useEffect, useCallback } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/app/firebase/config";
-import { Button } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
 
 interface RecommendData {

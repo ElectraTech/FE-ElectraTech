@@ -27,10 +27,6 @@ import Button from "react-bootstrap/Button";
 import Alert from "react-bootstrap/Alert";
 import Spinner from "react-bootstrap/Spinner";
 
-const formatNumberWithCommas = (value: number) => {
-  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-};
-
 export default function Recommend() {
   const [providerName, setProviderName] = useState("");
   const [sockets, setSockets] = useState([]);
@@ -45,19 +41,11 @@ export default function Recommend() {
   >([]);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
-  const [alertVariant, setAlertVariant] = useState<"success" | "danger">();
+  const [alertVariant, setAlertVariant] = useState<
+    "success" | "danger" | "info"
+  >();
   const [limit, setLimit] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    value = value.replace(/,/g, "");
-    const numericValue = parseFloat(value);
-    if (!isNaN(numericValue)) {
-      const formattedValue = formatNumberWithCommas(numericValue);
-      setAmountPaid(formattedValue);
-    }
-  };
 
   const fetchLimit = useCallback(
     async (providerName: string) => {
@@ -234,10 +222,13 @@ export default function Recommend() {
 
           const defaultElectricData = Array(7).fill(0);
           combinedElectricData.forEach((entry) => {
+            const kWh = entry.sumElectric / 3600000;
+            const cost = Math.round(calculateElectricCost(kWh));
+
             const dayIndex = daysOrder.indexOf(entry.day);
 
             if (dayIndex !== -1) {
-              defaultElectricData[dayIndex] = entry.sumElectric;
+              defaultElectricData[dayIndex] = cost;
             }
           });
 
@@ -252,12 +243,33 @@ export default function Recommend() {
     [database]
   );
 
+  const calculateElectricCost = (kWh: number) => {
+    if (kWh <= 50) return kWh * 1806;
+    if (kWh <= 100) return 50 * 1806 + (kWh - 50) * 1866;
+    if (kWh <= 200) return 50 * 1806 + 50 * 1866 + (kWh - 100) * 2167;
+    if (kWh <= 300)
+      return 50 * 1806 + 50 * 1866 + 100 * 2167 + (kWh - 200) * 2729;
+    if (kWh <= 400)
+      return (
+        50 * 1806 + 50 * 1866 + 100 * 2167 + 100 * 2729 + (kWh - 300) * 3050
+      );
+    return (
+      50 * 1806 +
+      50 * 1866 +
+      100 * 2167 +
+      100 * 2729 +
+      100 * 3050 +
+      (kWh - 400) * 3151
+    );
+  };
+
   const handleSockets = useCallback(async () => {
     try {
       const socketRef = ref(
         database,
         `PowerProviders/${providerName}/socketName`
       );
+      console.log(`PowerProviders/${providerName}/socketName`);
       const socketSnapshot = await get(socketRef);
       if (socketSnapshot.exists()) {
         const socketString = socketSnapshot.val();
@@ -269,19 +281,7 @@ export default function Recommend() {
     }
   }, [database, providerName]);
 
-  const convertToWs = () => {
-    const parsedAmount = parseFloat(amountPaid.replace(/,/g, ""));
-    if (!isNaN(parsedAmount) && parsedAmount >= 0) {
-      const unitPrice = 1800; // adjust this if needed
-      const calculatedWs = (parsedAmount / unitPrice) * 3600000; // converting to Ws
-      setKWh(calculatedWs.toFixed(2)); // rename setKWh to a more appropriate name like setWs
-    } else {
-      console.error("Please enter a valid amount.");
-    }
-  };
-
   const handleConvertAndSave = async () => {
-    convertToWs();
     await checkElectricUsage(providerName, amountPaid);
     const limitRef = ref(database, `PowerProviders/${providerName}/Limit`);
     try {
@@ -393,7 +393,7 @@ export default function Recommend() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const nameParam = new URLSearchParams(window.location.search).get("name");
-      setProviderName(nameParam || "");
+      setProviderName(nameParam?.trim() || "");
     }
     const handleElectricDataUpdate = (providerName: string) => {
       fetchElectricData(providerName);
@@ -488,7 +488,7 @@ export default function Recommend() {
                         />
                       </svg>
                     </div>
-                    <p>Energy</p>
+                    <p>Money</p>
                   </div>
                   <select>
                     <option value="option1">Hour</option>
@@ -503,8 +503,18 @@ export default function Recommend() {
             </div>
             <div className="dashboard__provider">
               <h1>
-                Consumer aim
-                <button className="provider__desc">
+                Consumer Aim
+                <button
+                  style={{ marginLeft: "10px" }}
+                  className="provider__desc"
+                  onClick={() => {
+                    setShowAlert(true);
+                    setAlertMessage(
+                      "Set a limit of the amount you want, if exceeded, a warning will be issued"
+                    );
+                    setAlertVariant("info");
+                  }}
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="25"
@@ -560,8 +570,7 @@ export default function Recommend() {
                 className="provider__consumer"
                 type="text"
                 placeholder="Enter money"
-                defaultValue={amountPaid}
-                onChange={handleAmountChange}
+                onChange={(e) => setKWh(e.target.value)}
               />
               <Button
                 style={{ marginLeft: "12px" }}

@@ -121,10 +121,12 @@ function Dashboard() {
 
         const defaultElectricData = Array(7).fill(0);
         combinedElectricData.forEach((entry) => {
-          const dayIndex = daysOrder.indexOf(entry.day);
+          const kWh = entry.sumElectric / 3600000;
+          const cost = Math.round(calculateElectricCost(kWh));
 
+          const dayIndex = daysOrder.indexOf(entry.day);
           if (dayIndex !== -1) {
-            defaultElectricData[dayIndex] = entry.sumElectric;
+            defaultElectricData[dayIndex] = cost;
           }
         });
 
@@ -135,6 +137,26 @@ function Dashboard() {
     },
     [database]
   );
+
+  const calculateElectricCost = (kWh: number) => {
+    if (kWh <= 50) return kWh * 1806;
+    if (kWh <= 100) return 50 * 1806 + (kWh - 50) * 1866;
+    if (kWh <= 200) return 50 * 1806 + 50 * 1866 + (kWh - 100) * 2167;
+    if (kWh <= 300)
+      return 50 * 1806 + 50 * 1866 + 100 * 2167 + (kWh - 200) * 2729;
+    if (kWh <= 400)
+      return (
+        50 * 1806 + 50 * 1866 + 100 * 2167 + 100 * 2729 + (kWh - 300) * 3050
+      );
+    return (
+      50 * 1806 +
+      50 * 1866 +
+      100 * 2167 +
+      100 * 2729 +
+      100 * 3050 +
+      (kWh - 400) * 3151
+    );
+  };
 
   useEffect(() => {
     const providerRef = ref(database, `UserAccount/${username}/Providers`);
@@ -218,9 +240,12 @@ function Dashboard() {
 
       if (roomName === "Remain Room") {
         setSelectedRoom("Remain Room");
-        const allProviders = await fetchAllProviders();
-        const providersInRooms = await fetchProvidersInRooms();
-
+        const allProviders = (await fetchAllProviders()).map(
+          (provider: string) => provider.trim()
+        );
+        const providersInRooms = (await fetchProvidersInRooms()).map(
+          (provider) => provider.trim()
+        );
         formattedRoomProviders = allProviders.filter(
           (provider: string) => !providersInRooms.includes(provider.trim())
         );
@@ -240,7 +265,7 @@ function Dashboard() {
           formattedRoomProviders = roomProvidersString.split("-");
         }
       }
-      fetchElectricData(roomName, formattedRoomProviders);
+      await fetchElectricData(roomName, formattedRoomProviders);
 
       setProviders(formattedRoomProviders);
     } catch (e) {
@@ -266,7 +291,6 @@ function Dashboard() {
   const fetchProvidersInRooms = async () => {
     try {
       const providersInRooms = [];
-      console.log(roomNames);
       for (const roomName of roomNames) {
         const roomProvidersRef = ref(
           database,
@@ -457,7 +481,7 @@ function Dashboard() {
                         />
                       </svg>
                     </div>
-                    <p>Energy</p>
+                    <p>Money</p>
                   </div>
                   <select>
                     <option value="option1">Hour</option>
@@ -558,7 +582,7 @@ function Dashboard() {
             <div className="dashboard__member">
               <div className="dashboard__title">
                 <h1>Members</h1>
-                <Link href="/member">
+                <Link style={{ textDecoration: "none" }} href="/member">
                   <p>View all</p>
                 </Link>
               </div>
