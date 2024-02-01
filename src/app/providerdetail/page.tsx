@@ -18,7 +18,7 @@ import {
 import { auth } from "@/app/firebase/config";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useCallback } from "react";
-import Chart from "@/components/chart";
+import BarChart from "@/components/barchart";
 import Image from "next/image";
 import Link from "next/link";
 import Modal from "@/components/add-member";
@@ -284,6 +284,7 @@ export default function Recommend() {
   const handleConvertAndSave = async () => {
     await checkElectricUsage(providerName, amountPaid);
     const limitRef = ref(database, `PowerProviders/${providerName}/Limit`);
+    setAmountPaid(kWh);
     try {
       await set(limitRef, parseFloat(kWh));
       console.log(`Đã lưu ${kWh} kWh vào Firebase.`);
@@ -357,9 +358,6 @@ export default function Recommend() {
           return null;
         });
 
-        const amountInKWh = parseFloat(amountPaid.replace(/,/g, "")) / 1800;
-        console.log(`amountInKWh: ${amountInKWh}`);
-
         const totalElectricUsage = numericValues.reduce(
           (acc: number | null, value: number | null) => {
             if (acc !== null && value !== null) {
@@ -370,20 +368,20 @@ export default function Recommend() {
           0
         );
 
-        console.log(
-          `Tong so dien trong ngay ${latestDate}: ${totalElectricUsage} kWh`
-        );
-
         if (totalElectricUsage !== null) {
-          if (totalElectricUsage > amountInKWh) {
-            setAlertMessage("Electric usage exceeds the limit");
-            setShowAlert(true);
-            setAlertVariant("danger");
+          console.log(calculateElectricCost(totalElectricUsage / 3600000));
+
+          if (
+            calculateElectricCost(totalElectricUsage / 3600000) >
+            parseFloat(amountPaid) / 30
+          ) {
+            setTimeout(() => {
+              setAlertMessage("Electric usage exceeds the limit");
+              setShowAlert(true);
+              setAlertVariant("danger");
+            }, 3000);
           }
         }
-        console.log(
-          `Tong so dien trong ngay ${latestDate}: ${totalElectricUsage!} kWh`
-        );
       }
     } catch (error) {
       console.error("Lỗi khi kiểm tra số tiền điện:", error);
@@ -470,7 +468,15 @@ export default function Recommend() {
               ))}
             </div>
             <div className="dashboard__level">
-              <h1>Levels</h1>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <h1>Levels</h1>
+                <Link
+                  href="/showchart"
+                  style={{ textDecoration: "none", color: "black" }}
+                >
+                  Detail
+                </Link>
+              </div>
               <div className="dashboard__table">
                 <div className="dashboard__option">
                   <div className="dashboard__icon">
@@ -498,7 +504,10 @@ export default function Recommend() {
                     <option value="option5">Year</option>
                   </select>
                 </div>
-                <Chart data={electricData} thresholdValue={limit || 0} />
+                <BarChart
+                  data={electricData}
+                  thresholdValue={limit ? limit / 30 : 0}
+                />
               </div>
             </div>
             <div className="dashboard__provider">

@@ -17,7 +17,7 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import Cookies from "js-cookie";
 import { useState, useEffect, useCallback } from "react";
 import Modal from "@/components/create-modal";
-import Chart from "@/components/chart";
+import BarChart from "@/components/barchart";
 
 function Dashboard() {
   const [user] = useAuthState(auth);
@@ -491,7 +491,7 @@ function Dashboard() {
                     <option value="option5">Year</option>
                   </select>
                 </div>
-                <Chart data={electricData} />
+                <BarChart data={electricData} />
               </div>
             </div>
             <div className="dashboard__provider">
