@@ -307,10 +307,10 @@ export default function Recommend() {
     const electricAmountSnapshot = await get(electricAmountRef);
 
     if (electricAmountSnapshot.exists()) {
-      const electricDay = Object.keys(electricAmountSnapshot.val());
-      const latestDate = electricDay.reduce((latest, current) => {
-        return latest > current ? latest : current;
-      }, electricDay[0]);
+      const electricDays = Object.keys(electricAmountSnapshot.val());
+      const latestDate = electricDays.reduce((latest, current) => {
+        return new Date(current) > new Date(latest) ? current : latest;
+      }, electricDays[0]);
 
       return latestDate;
     }
@@ -369,12 +369,15 @@ export default function Recommend() {
         );
 
         if (totalElectricUsage !== null) {
-          console.log(calculateElectricCost(totalElectricUsage / 3600000));
+          const electricCost = calculateElectricCost(
+            totalElectricUsage / 3600000
+          );
+          const parsedAmountPaid = parseFloat(amountPaid) / 30;
 
-          if (
-            calculateElectricCost(totalElectricUsage / 3600000) >
-            parseFloat(amountPaid) / 30
-          ) {
+          console.log(electricCost);
+          console.log(parsedAmountPaid);
+
+          if (electricCost > parsedAmountPaid) {
             setTimeout(() => {
               setAlertMessage("Electric usage exceeds the limit");
               setShowAlert(true);
