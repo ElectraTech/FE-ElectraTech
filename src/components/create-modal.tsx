@@ -86,6 +86,7 @@ function Example(props: IProps) {
                   )
                 }
               >
+                <option value=""></option>
                 {providers.map((provider, index) => (
                   <option key={index}>{provider}</option>
                 ))}

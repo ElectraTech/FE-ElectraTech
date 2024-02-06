@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  Label,
 } from "recharts";
 import { auth } from "@/app/firebase/config";
 import { useAuthState } from "react-firebase-hooks/auth";
@@ -26,13 +27,19 @@ const ChartComponent = () => {
   const [data, setData] = useState<ChartData[]>([]);
   const [user] = useAuthState(auth);
   const database = getDatabase();
-  const databaseRef = ref(
-    database,
-    "/PowerProviders/thanhvjp1/ElectricAmountShow"
-  );
+  const [providerName, setProviderName] = useState("");
 
   useEffect(() => {
     let isMounted = true;
+    if (typeof window !== "undefined") {
+      const nameParam = new URLSearchParams(window.location.search).get("name");
+      setProviderName(nameParam?.trim() || "");
+    }
+
+    const databaseRef = ref(
+      database,
+      "/PowerProviders/" + providerName + "/ElectricAmountShow"
+    );
 
     const fetchData = () => {
       onValue(databaseRef, (snapshot) => {
@@ -83,7 +90,7 @@ const ChartComponent = () => {
     return () => {
       isMounted = false;
     };
-  }, [databaseRef]);
+  }, [providerName, database]);
 
   return (
     <div id="dashboard">
@@ -98,7 +105,15 @@ const ChartComponent = () => {
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <XAxis dataKey="timestamp" />
-              <YAxis />
+              <YAxis>
+                <Label
+                  value="Electric Amount (Ws)"
+                  angle={-90}
+                  dx={-20}
+                  position="insideLeft"
+                  style={{ textAnchor: "middle" }}
+                />
+              </YAxis>
               <CartesianGrid strokeDasharray="3 3" />
               <Tooltip />
               <Legend />

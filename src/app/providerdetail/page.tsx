@@ -132,7 +132,7 @@ export default function Recommend() {
           setAlertVariant("success");
         }
         setIsLoading(false);
-      }, 20000);
+      }, 10000);
     } catch (error) {
       console.error("Error updating status:", error);
       setIsLoading(false);
@@ -484,7 +484,7 @@ export default function Recommend() {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <h1>Levels</h1>
                 <Link
-                  href="/showchart"
+                  href={`/showchart?name=${providerName}`}
                   style={{ textDecoration: "none", color: "black" }}
                 >
                   Detail

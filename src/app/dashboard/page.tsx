@@ -18,6 +18,7 @@ import Cookies from "js-cookie";
 import { useState, useEffect, useCallback } from "react";
 import Modal from "@/components/create-modal";
 import BarChart from "@/components/barchart";
+import Spinner from "react-bootstrap/Spinner";
 
 function Dashboard() {
   const [user] = useAuthState(auth);
@@ -29,6 +30,29 @@ function Dashboard() {
   const [showModalCreate, setShowModalCreate] = useState<boolean>(false);
   const [electricData, setElectricData] = useState<number[]>([]);
   const [clickedRoom, setClickedRoom] = useState<string>("");
+  const [activeStatus, setActiveStatus] = useState<Record<string, boolean>>({});
+  const [roomClicked, setRoomClicked] = useState(false);
+
+  const fetchProviderStatus = useCallback(
+    async (provider: string) => {
+      try {
+        const isActiveRef = ref(
+          database,
+          `PowerProviders/${provider.trim()}/IsActive`
+        );
+        const isActiveSnapshot = await get(isActiveRef);
+        if (isActiveSnapshot.exists()) {
+          setActiveStatus((prevStatus) => ({
+            ...prevStatus,
+            [provider]: isActiveSnapshot.val(),
+          }));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [database]
+  );
 
   const fetchElectricData = useCallback(
     async (roomName: string, roomProviders: string[]) => {
@@ -165,9 +189,9 @@ function Dashboard() {
     const unsubscribeProviders = onValue(
       providerRef,
       (snapshot: DataSnapshot) => {
-        if (snapshot.exists()) {
+        if (snapshot.exists() && !roomClicked) {
           const providersString = snapshot.val();
-          const formattedProviders = providersString.split("-");
+          const formattedProviders = providersString.split("-").slice(0, -1);
           setProviders(formattedProviders);
         }
       }
@@ -187,7 +211,9 @@ function Dashboard() {
       roomName: string,
       roomProviders: string[]
     ) => {
-      fetchElectricData(roomName, roomProviders);
+      if (!roomClicked) {
+        fetchElectricData(roomName, roomProviders);
+      }
     };
 
     const roomProvidersListener = ref(database, `PowerProviders`);
@@ -199,43 +225,69 @@ function Dashboard() {
       }
     });
 
+    const fetchStatuses = () => {
+      providers.forEach(fetchProviderStatus);
+    };
+
     return () => {
       off(roomProvidersListener);
       off(providerRef);
       off(roomNamesRef);
       unsubscribeProviders();
       unsubscribeRoomNames();
+      fetchStatuses();
     };
-  }, [username, database, selectedRoom, fetchElectricData]);
+  }, [
+    username,
+    database,
+    selectedRoom,
+    fetchElectricData,
+    fetchProviderStatus,
+    providers,
+    roomClicked,
+  ]);
 
-  const handleProviders = async () => {
+  const fetchAllProviders = async () => {
     try {
-      const providerRef = ref(database, `UserAccount/${username}/Providers`);
-      const providerSnapshot = await get(providerRef);
-      if (providerSnapshot.exists()) {
-        const providersString = providerSnapshot.val();
-        const formattedProviders = providersString.split("-");
-        setProviders(formattedProviders);
+      const providersRef = ref(database, `UserAccount/${username}/Providers`);
+      const providersSnapshot = await get(providersRef);
+      if (providersSnapshot.exists()) {
+        const providersString = providersSnapshot.val();
+        const allProviders = providersString.split("-").slice(0, -1);
+        return allProviders;
       }
     } catch (e) {
       console.error(e);
     }
+    return [];
   };
-  const handleRoomNames = async () => {
+
+  const fetchProvidersInRooms = async () => {
     try {
-      const roomNamesRef = ref(database, `UserAccount/${username}/Rooms`);
-      const roomNamesSnapshot = await get(roomNamesRef);
-      if (roomNamesSnapshot.exists()) {
-        const roomNamesArray = Object.keys(roomNamesSnapshot.val());
-        setRoomNames(roomNamesArray);
+      const providersInRooms = [];
+      for (const roomName of roomNames) {
+        const roomProvidersRef = ref(
+          database,
+          `UserAccount/${username}/Rooms/${roomName}`
+        );
+        const roomProvidersSnapshot = await get(roomProvidersRef);
+        if (roomProvidersSnapshot.exists()) {
+          const roomProvidersString = roomProvidersSnapshot.val();
+          const formattedRoomProviders = roomProvidersString.split("-");
+          providersInRooms.push(...formattedRoomProviders);
+        }
       }
+      return providersInRooms;
     } catch (e) {
       console.error(e);
     }
+    return [];
   };
+
   const handleRoomClick = async (roomName: string) => {
     try {
       setClickedRoom(roomName);
+      setRoomClicked(true);
       let formattedRoomProviders = [];
 
       if (roomName === "Remain Room") {
@@ -271,43 +323,6 @@ function Dashboard() {
     } catch (e) {
       console.error(e);
     }
-  };
-
-  const fetchAllProviders = async () => {
-    try {
-      const providersRef = ref(database, `UserAccount/${username}/Providers`);
-      const providersSnapshot = await get(providersRef);
-      if (providersSnapshot.exists()) {
-        const providersString = providersSnapshot.val();
-        const allProviders = providersString.split("-");
-        return allProviders;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
-  };
-
-  const fetchProvidersInRooms = async () => {
-    try {
-      const providersInRooms = [];
-      for (const roomName of roomNames) {
-        const roomProvidersRef = ref(
-          database,
-          `UserAccount/${username}/Rooms/${roomName}`
-        );
-        const roomProvidersSnapshot = await get(roomProvidersRef);
-        if (roomProvidersSnapshot.exists()) {
-          const roomProvidersString = roomProvidersSnapshot.val();
-          const formattedRoomProviders = roomProvidersString.split("-");
-          providersInRooms.push(...formattedRoomProviders);
-        }
-      }
-      return providersInRooms;
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
   };
 
   return (
@@ -504,7 +519,28 @@ function Dashboard() {
                         href={`/providerdetail?name=${provider}`}
                         style={{ textDecoration: "none", color: "#5C5C5C" }}
                       >
-                        <p>{provider}</p>
+                        <p>
+                          {provider}{" "}
+                          {activeStatus[provider] === true ? (
+                            <Spinner
+                              as="span"
+                              animation="grow"
+                              size="sm"
+                              role="status"
+                              aria-hidden="true"
+                              variant="success"
+                            />
+                          ) : activeStatus[provider] === false ? (
+                            <Spinner
+                              as="span"
+                              animation="grow"
+                              size="sm"
+                              role="status"
+                              aria-hidden="true"
+                              variant="danger"
+                            />
+                          ) : null}
+                        </p>
                       </Link>
                     </div>
                   ))}

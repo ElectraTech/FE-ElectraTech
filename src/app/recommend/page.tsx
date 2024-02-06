@@ -3,7 +3,7 @@ import "@/styles/dashboard.css";
 import "@/styles/recommend.css";
 import Menu from "@/components/menu";
 import Cookies from "js-cookie";
-import { getDatabase, ref, child, get, set } from "firebase/database";
+import { getDatabase, ref, child, get, set, onValue } from "firebase/database";
 import { useState, useEffect, useCallback } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/app/firebase/config";
@@ -25,6 +25,11 @@ interface DeviceDataItem {
   time: string;
   provider: string;
   index: number;
+}
+
+interface DeviceData {
+  device_id: number;
+  time_stop: string[];
 }
 
 export default function Recommend() {
@@ -101,64 +106,38 @@ export default function Recommend() {
     setSelectedProvider(event.target.value);
   };
 
-  const processRecommendData = (recommendData: RecommendData) => {
-    let processedData: DeviceDataItem[] = [];
+  const processRecommendData = useCallback(
+    (recommendData: RecommendData) => {
+      let processedData: DeviceDataItem[] = [];
 
-    Object.keys(recommendData).forEach((providerName) => {
-      const providerData = recommendData[providerName];
+      if (Array.isArray(recommendData.times_stop)) {
+        const times_stop = recommendData.times_stop.slice(1);
 
-      Object.keys(providerData).forEach((day) => {
-        const dayData = providerData[day];
-        if (dayData) {
-          dayData.forEach((socketData, index) => {
-            if (socketData && socketData.time_stop) {
-              const name = `socket${index}`;
-              socketData.time_stop.forEach((timeRange, timeIndex) => {
-                processedData.push({
-                  name,
-                  day,
-                  time: timeRange,
-                  provider: providerName,
-                  index: timeIndex,
-                });
-              });
-            }
-          });
-        }
-      });
-    });
+        times_stop.forEach((dayData) => {
+          if (dayData) {
+            const day = dayData.day_of_week;
+            dayData.devices.forEach((deviceData: DeviceData, index: number) => {
+              const name = `socket${deviceData.device_id}`;
+              deviceData.time_stop.forEach(
+                (timeRange: string, timeIndex: number) => {
+                  processedData.push({
+                    name,
+                    day,
+                    time: timeRange,
+                    provider: selectedProvider,
+                    index: timeIndex,
+                  });
+                }
+              );
+            });
+          }
+        });
+      }
 
-    return processedData;
-  };
-
-  const fetchDataFromFirebase = useCallback(async () => {
-    const recommendRef = ref(database, `/Recommend/${selectedProvider}`);
-    const recommendSnapshot = await get(recommendRef);
-    if (recommendSnapshot.exists()) {
-      const recommendData = recommendSnapshot.val() as RecommendData;
-      const formattedData = processRecommendData(recommendData);
-      const dayOrder: { [key: string]: number } = {
-        Monday: 1,
-        Tuesday: 2,
-        Wednesday: 3,
-        Thursday: 4,
-        Friday: 5,
-        Saturday: 6,
-        Sunday: 7,
-      };
-
-      const sortedData = formattedData.sort((a, b) => {
-        if (a.name === b.name) {
-          return dayOrder[a.day] - dayOrder[b.day];
-        }
-        return a.name.localeCompare(b.name);
-      });
-      setDeviceData(sortedData);
-    } else {
-      setDeviceData([]);
-    }
-  }, [database, selectedProvider]);
-
+      return processedData;
+    },
+    [selectedProvider]
+  );
   const renderTableRows = (selectedProvider: string): JSX.Element[] => {
     const rows: JSX.Element[] = [];
     const filteredData = deviceData.filter(
@@ -186,7 +165,7 @@ export default function Recommend() {
             <td key={`${socket}-${day}`}>
               {dayData.map((item, index) => (
                 <div
-                  style={{ width: "60px" }}
+                  style={{ width: "84px" }}
                   key={`${socket}-${day}-${index}`}
                 >
                   {renderEditableTime(item)}
@@ -231,57 +210,84 @@ export default function Recommend() {
     );
   };
 
-  const handleProviders = useCallback(async () => {
+  const handleProviders = useCallback(() => {
     try {
       const providerRef = ref(database, `UserAccount/${username}/Providers`);
-      const providerSnapshot = await get(providerRef);
-      if (providerSnapshot.exists()) {
-        const providersString = providerSnapshot.val();
-        const formattedProviders = providersString.split("-");
-        setProviders(formattedProviders);
-      }
+      onValue(providerRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const providersString = snapshot.val();
+          const formattedProviders = providersString.split("-").slice(0, -1);
+          setProviders(formattedProviders);
+        }
+      });
 
       if (!selectedProvider) {
         return;
       }
 
-      await fetchDataFromFirebase();
+      const recommendRef = ref(database, `/Recommend/${selectedProvider}`);
+      onValue(recommendRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const recommendData = snapshot.val() as RecommendData;
+          const tempData = processRecommendData(recommendData);
+          const hasData = tempData.some((item) => Object.keys(item).length > 0);
 
-      if (deviceData.length === 0) {
-        const apiUrl = `http://127.0.0.1:8000/api/chatbot/`;
-        const requestOptions = {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ outlet_name: selectedProvider }),
-        };
+          if (!hasData) {
+            const apiUrl = `http://127.0.0.1:8000/api/chatbot/`;
+            const requestOptions = {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ outlet_name: selectedProvider }),
+            };
 
-        const response = await fetch(apiUrl, requestOptions);
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
+            fetch(apiUrl, requestOptions)
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error("Network response was not ok");
+                }
+                return response.json();
+              })
+              .catch((error) => console.error(error));
+          } else {
+            const dayOrder: { [key: string]: number } = {
+              Monday: 1,
+              Tuesday: 2,
+              Wednesday: 3,
+              Thursday: 4,
+              Friday: 5,
+              Saturday: 6,
+              Sunday: 7,
+            };
+
+            const sortedData = tempData.sort((a, b) => {
+              if (a.name === b.name) {
+                return dayOrder[a.day] - dayOrder[b.day];
+              }
+              return a.name.localeCompare(b.name);
+            });
+            setDeviceData(sortedData);
+          }
+        } else {
+          setDeviceData([]);
         }
-
-        await response.json();
-
-        await fetchDataFromFirebase();
-      }
+      });
     } catch (e) {
       console.error(e);
     }
-  }, [database, username, selectedProvider, deviceData, fetchDataFromFirebase]);
+  }, [database, username, selectedProvider, processRecommendData]);
 
   useEffect(() => {
     handleProviders();
-    fetchDataFromFirebase();
-  }, [handleProviders, fetchDataFromFirebase]);
+  }, [handleProviders]);
 
   return (
     <>
       <div id="dashboard">
         <Menu />
         <div className="dashboard__function">
-          <table>
+          <table style={{ marginLeft: "160px" }}>
             <thead>
               <tr>
                 <th>
