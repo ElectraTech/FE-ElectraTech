@@ -46,6 +46,326 @@ export default function Recommend() {
   >();
   const [limit, setLimit] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [powerStatus, setPowerStatus] = useState("");
+  const [lastWeekElectricData, setLastWeekElectricData] = useState<number[]>(
+    []
+  );
+  const [WeekElectricData, setWeekElectricData] = useState<number[]>([]);
+
+  const fetchLastWeekElectricData = useCallback(
+    async (providerName: string) => {
+      try {
+        const trimmedProvider = providerName.trim();
+        const electricAmountRef = ref(
+          database,
+          `PowerProviders/${trimmedProvider}/ElectricAmount`
+        );
+        const electricAmountSnapshot = await get(electricAmountRef);
+
+        if (electricAmountSnapshot.exists()) {
+          const electricDataForProvider: { [key: string]: string } =
+            electricAmountSnapshot.val();
+
+          // Get the start and end dates of last week
+          const now = new Date();
+          const startOfLastWeek = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - now.getDay() - 13
+          );
+          const endOfLastWeek = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - now.getDay() - 6
+          );
+
+          // Filter the data to only include entries from last week
+          const lastWeekData = Object.entries(electricDataForProvider).filter(
+            ([date, _]) => {
+              const dateParts = date.split("-");
+              const dataDate = new Date(
+                parseInt(dateParts[2]),
+                parseInt(dateParts[1]) - 1,
+                parseInt(dateParts[0])
+              );
+              return dataDate >= startOfLastWeek && dataDate <= endOfLastWeek;
+            }
+          );
+
+          // Process the lastWeekData similarly to your existing code...
+          const combinedData = lastWeekData.map(([day, data]) => {
+            const dateParts = day.split("-");
+            const inputDate = new Date(
+              parseInt(dateParts[2]),
+              parseInt(dateParts[1]) - 1,
+              parseInt(dateParts[0])
+            );
+            const days = [
+              "Sunday",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+            ];
+            const dayOfWeek = days[inputDate.getDay()];
+            return { day: dayOfWeek, data };
+          });
+
+          const numericValues = combinedData.flatMap((entry) => {
+            const entryStr = JSON.stringify(entry);
+            const matches = entryStr.match(/\d+(?=\s*Ws)/g);
+            if (matches) {
+              const sumElectric = matches.reduce(
+                (acc, match) => acc + parseFloat(match),
+                0
+              );
+              return { day: entry.day, sumElectric };
+            }
+            return null;
+          });
+
+          const filteredNumericValues = numericValues.filter(Boolean);
+
+          const combinedLastWeekElectricData = filteredNumericValues.reduce(
+            (acc: { day: string; sumElectric: number }[], entry) => {
+              if (entry) {
+                const existingEntry = acc.find(
+                  (item: { day: string }) => item.day === entry.day
+                );
+                if (existingEntry) {
+                  existingEntry.sumElectric += entry.sumElectric;
+                } else {
+                  acc.push(entry);
+                }
+              }
+              return acc;
+            },
+            []
+          );
+
+          const daysOrder = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ];
+
+          const defaultLastWeekElectricData = Array(7).fill(0);
+          combinedLastWeekElectricData.forEach((entry) => {
+            const kWh = entry.sumElectric / 3600000;
+            const cost = Math.round(calculateElectricCost(kWh));
+
+            const dayIndex = daysOrder.indexOf(entry.day);
+
+            if (dayIndex !== -1) {
+              defaultLastWeekElectricData[dayIndex] = cost;
+            }
+          });
+
+          setLastWeekElectricData(defaultLastWeekElectricData);
+        } else {
+          setLastWeekElectricData(Array(7).fill(0));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [database]
+  );
+
+  const fetchWeekElectricData = useCallback(
+    async (providerName: string) => {
+      try {
+        const trimmedProvider = providerName.trim();
+        const electricAmountRef = ref(
+          database,
+          `PowerProviders/${trimmedProvider}/ElectricAmount`
+        );
+        const electricAmountSnapshot = await get(electricAmountRef);
+
+        if (electricAmountSnapshot.exists()) {
+          const electricDataForProvider: { [key: string]: string } =
+            electricAmountSnapshot.val();
+
+          // Get the start and end dates of last week
+          const now = new Date();
+          const startOfLastWeek = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - now.getDay() - 5
+          );
+          const endOfLastWeek = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - now.getDay() + 1
+          );
+
+          // Filter the data to only include entries from last week
+          const lastWeekData = Object.entries(electricDataForProvider).filter(
+            ([date, _]) => {
+              const dateParts = date.split("-");
+              const dataDate = new Date(
+                parseInt(dateParts[2]),
+                parseInt(dateParts[1]) - 1,
+                parseInt(dateParts[0])
+              );
+              return dataDate >= startOfLastWeek && dataDate <= endOfLastWeek;
+            }
+          );
+
+          // Process the lastWeekData similarly to your existing code...
+          const combinedData = lastWeekData.map(([day, data]) => {
+            const dateParts = day.split("-");
+            const inputDate = new Date(
+              parseInt(dateParts[2]),
+              parseInt(dateParts[1]) - 1,
+              parseInt(dateParts[0])
+            );
+            const days = [
+              "Sunday",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+            ];
+            const dayOfWeek = days[inputDate.getDay()];
+            return { day: dayOfWeek, data };
+          });
+
+          const numericValues = combinedData.flatMap((entry) => {
+            const entryStr = JSON.stringify(entry);
+            const matches = entryStr.match(/\d+(?=\s*Ws)/g);
+            if (matches) {
+              const sumElectric = matches.reduce(
+                (acc, match) => acc + parseFloat(match),
+                0
+              );
+              return { day: entry.day, sumElectric };
+            }
+            return null;
+          });
+
+          const filteredNumericValues = numericValues.filter(Boolean);
+
+          const combinedLastWeekElectricData = filteredNumericValues.reduce(
+            (acc: { day: string; sumElectric: number }[], entry) => {
+              if (entry) {
+                const existingEntry = acc.find(
+                  (item: { day: string }) => item.day === entry.day
+                );
+                if (existingEntry) {
+                  existingEntry.sumElectric += entry.sumElectric;
+                } else {
+                  acc.push(entry);
+                }
+              }
+              return acc;
+            },
+            []
+          );
+
+          const daysOrder = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ];
+
+          const defaultLastWeekElectricData = Array(7).fill(0);
+          combinedLastWeekElectricData.forEach((entry) => {
+            const kWh = entry.sumElectric / 3600000;
+            const cost = Math.round(calculateElectricCost(kWh));
+
+            const dayIndex = daysOrder.indexOf(entry.day);
+
+            if (dayIndex !== -1) {
+              defaultLastWeekElectricData[dayIndex] = cost;
+            }
+          });
+
+          setWeekElectricData(defaultLastWeekElectricData);
+        } else {
+          setWeekElectricData(Array(7).fill(0));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [database]
+  );
+
+  const calculatePercentageChange = useCallback(() => {
+    fetchLastWeekElectricData(providerName);
+    fetchWeekElectricData(providerName);
+    if (lastWeekElectricData.length === 0 || electricData.length === 0) {
+      return null;
+    }
+
+    const lastWeekTotal = lastWeekElectricData.reduce(
+      (acc, val) => acc + val,
+      0
+    );
+    const thisWeekTotal = WeekElectricData.reduce((acc, val) => acc + val, 0);
+
+    const percentage = (thisWeekTotal / lastWeekTotal) * 100;
+
+    const percentageChange = Math.round(100 - percentage);
+    return percentageChange;
+  }, [
+    electricData,
+    lastWeekElectricData,
+    WeekElectricData,
+    providerName,
+    fetchLastWeekElectricData,
+    fetchWeekElectricData,
+  ]);
+
+  useEffect(() => {
+    const powerStatusRef = ref(
+      database,
+      `PowerProviders/${providerName}/isTurnOff`
+    );
+
+    const unsubscribe = onValue(powerStatusRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const currentPowerStatus = snapshot.val();
+        setPowerStatus(currentPowerStatus);
+
+        if (currentPowerStatus === "pop") {
+          const userResponse = window.confirm(
+            "Sau 5 phút nữa sẽ tắt, bạn có muốn tắt không?"
+          );
+          const newPowerStatus = userResponse ? "to" : "nor";
+
+          set(powerStatusRef, newPowerStatus)
+            .then(() =>
+              console.log(
+                `Updated powerStatus to ${newPowerStatus} for ${providerName}.`
+              )
+            )
+            .catch((error) =>
+              console.error("Error updating powerStatus:", error)
+            );
+        }
+      } else {
+        setPowerStatus("");
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [providerName, database]);
 
   const fetchLimit = useCallback(
     async (providerName: string) => {
@@ -180,7 +500,7 @@ export default function Recommend() {
 
           const numericValues = combinedData.flatMap((entry) => {
             const entryStr = JSON.stringify(entry);
-            const matches = entryStr.match(/\d+.\d+(?=\s*Ws)/g);
+            const matches = entryStr.match(/\d+(?=\s*Ws)/g);
             if (matches) {
               const sumElectric = matches.reduce(
                 (acc, match) => acc + parseFloat(match),
@@ -357,7 +677,7 @@ export default function Recommend() {
           console.log(`entry: ${JSON.stringify(entry)}`);
           const entryStr = JSON.stringify(entry);
           console.log(`entryStr: ${entryStr}`);
-          const matches = entryStr.match(/\d+.\d+(?=\s*Ws)/g);
+          const matches = entryStr.match(/\d+(?=\s*Ws)/g);
           if (matches) {
             const sumElectric = matches.reduce(
               (acc, match) => acc + parseFloat(match),
@@ -462,6 +782,14 @@ export default function Recommend() {
             )}
             <div style={{ display: "flex", gap: "12px" }}>
               <h1 className="provider__title">{providerName}</h1>
+              <Button
+                style={{ height: "40px" }}
+                onClick={() =>
+                  alert(`Bạn đã tiết kiệm ${calculatePercentageChange()}%`)
+                }
+              >
+                Thông báo tiết kiệm
+              </Button>
               {isLoading && <Spinner animation="border" variant="primary" />}
             </div>
             <div className="dashboard__room">

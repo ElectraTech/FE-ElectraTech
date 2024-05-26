@@ -96,7 +96,7 @@ function Dashboard() {
 
             const numericValues = combinedData.flatMap((entry) => {
               const entryStr = JSON.stringify(entry);
-              const matches = entryStr.match(/\d+\.\d+(?=\s*Ws)/g);
+              const matches = entryStr.match(/\d+(?=\s*Ws)/g);
               if (matches) {
                 const sumElectric = matches.reduce(
                   (acc, match) => acc + parseFloat(match),
@@ -499,9 +499,9 @@ function Dashboard() {
                     <p>Money</p>
                   </div>
                   <select>
+                    <option value="option3">Week</option>
                     <option value="option1">Hour</option>
                     <option value="option2">Day</option>
-                    <option value="option3">Week</option>
                     <option value="option4">Month</option>
                     <option value="option5">Year</option>
                   </select>
